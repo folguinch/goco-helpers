@@ -95,7 +95,7 @@ def get_func_params(func: Callable,
 
     # Check required arguments are in config
     for opt in required_keys:
-        if opt not in config or opt not in cfgvars:
+        if opt not in config and opt not in cfgvars:
             raise KeyError(f'Missing {opt} in configuration')
 
     # Filter paramters
@@ -117,7 +117,7 @@ def get_func_params(func: Callable,
             elif key in float_list_keys:
                 pars[key] = list(map(float, val.split(sep)))
             else:
-                pars[key] = config.get(val)
+                pars[key] = val
 
     return pars
 
