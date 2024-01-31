@@ -28,6 +28,58 @@ def get_fields(msname: 'pathlib.Path',
 
     return fields
 
+def spws_for_names(msname: 'pathlib.Path') -> List[List[int]]:
+    """SPW indices per each SPW name."""
+    metadata = msmetadata()
+    metadata.open(f'{msname}')
+    names = metadata.spwsfornames()
+    metadata.close()
+
+    return list(names.values())
+
+def spws_per_eb(msname: 'pathlib.Path'):
+    """Determine the spws for each EB in input MS."""
+    spws = {}
+    names = spws_for_names(msname)
+    for val in names:
+        for i, spw in enumerate(val):
+            aux = spws.get(i+1, [])
+            spws[i+1] =  aux.append(spw)
+
+    return spws
+
+def flag_freqs_to_channels(spw: int,
+                           flags: List[Tuple[u.Quantity]],
+                           uvdata: 'pathlib.Path',
+                           invert: bool = False) -> str:
+    """Convert flags in LSRK frequencies to channels."""
+    # Open with MS tool
+    mstool = ms()
+    mstool.open(f'{uvdata}')
+
+    # MS frequency axis to masked array
+    freqs = mstool.cvelfreqs(spwids=[spw], outframe='LSRK') * u.Hz
+    freqs = np.ma.array(freqs.to(u.GHz).value)
+    mstool.close()
+
+    # Iterate over ranges
+    for freq_range in flags:
+        freq_low = np.min(freq_range).to(u.GHz)
+        freq_high = np.max(freq_range).to(u.GHz)
+        freqs = np.ma.masked_where((freqs>=freq_low) & (freqs<=freq_high),
+                                   freqs)
+
+    # Convert to indices
+    if invert:
+        clumps = np.ma.clump_unmasked(freqs)
+    else:
+        clumps = np.ma.clump_masked(freqs)
+    spw_flags = []
+    for clump in clumps:
+        spw_flags.append(f'{clump.start}~{clump.stop-1}')
+
+    return ';'.join(spw_flags)
+
 def uvdata_info(msname: 'pathlib.Path', log: Callable = print):
     """Extract information from input uv data."""
     # Open MS
@@ -42,8 +94,8 @@ def uvdata_info(msname: 'pathlib.Path', log: Callable = print):
     log(f'Maximum baseline: {max_baseline:.0f}')
 
     # Antenna diameters
-    is12m = all([int(val['value']) == 12
-                 for val in metadata.antennadiameter().values()])
+    is12m = all(int(val['value']) == 12
+                for val in metadata.antennadiameter().values())
     diameter = 12 * u.m if is12m else 7 * u.m
     log(f'Antennae diameter: {diameter}')
 
@@ -182,7 +234,7 @@ def get_widths(msname: Optional['pathlib.Path'] = None,
         log(f'Minumum value of maximum widths: {max_width:.3f}')
         log(f'Number of channel groups: {ngroups}')
         log(f'Channel bins: {binsize}')
-        
+
         # Store value
         widths.append(binsize)
 
@@ -231,16 +283,16 @@ def imaging_parameters(msname: Optional['pathlib.Path'] = None,
 
         # Log
         print('-' * 80)
-        info(f'SPW: {spw}')
-        info(f'Estimated highest resolution: {beam}')
-        info(f'Estimated largest pb size: {pbsize}')
-        info(f'Estimated pixel size: {pixsize}')
-        info(f'Estimated imsize: {imsize}')
-        info(f'Optimal estimated imsize: {imsize_opt}')
+        log(f'SPW: {spw}')
+        log(f'Estimated highest resolution: {beam}')
+        log(f'Estimated largest pb size: {pbsize}')
+        log(f'Estimated pixel size: {pixsize}')
+        log(f'Estimated imsize: {imsize}')
+        log(f'Optimal estimated imsize: {imsize_opt}')
 
         # Update params
-        params['cell'] = np.min([params['cell'], pixsize])
-        params['imsize'] = np.max([params['imsize'], imsize_opt])
+        params['cell'] = min(params['cell'], pixsize)
+        params['imsize'] = max(params['imsize'], imsize_opt)
 
     return params
 
@@ -264,7 +316,7 @@ def calculator(args: Optional[List] = None) -> None:
 
     # Command line options
     logfile = datetime.now().isoformat(timespec='milliseconds')
-    logfile = f'debug_interferometry_{logfile}.log'
+    logfile = f'debug_mstools_{logfile}.log'
     args_parents = [parents.logger(logfile)]
     parser = argparse.ArgumentParser(
         description='Imaging calculator',
