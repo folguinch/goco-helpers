@@ -7,7 +7,10 @@ import json
 import os
 import subprocess
 
-from casatasks import tclean #, exportfits, imsubimage
+from astropy.io import fits
+from astropy.stats import mad_std
+from casatasks import tclean, exportfits #, imsubimage
+import astropy.units as u
 #from casatools import image
 #import numpy as np
 
@@ -88,12 +91,50 @@ def tclean_parallel(vis: Path,
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         proc.wait()
 
-#def compute_dirty(data: Sequence[DataHandler],
+def pb_clean(vis: Path,
+             imagename: Path,
+             nproc: int,
+             nsigma: float = 3.,
+             log: Callable = print,
+             **tclean_args: dict):
+    """Perform cleaning with a PB mask."""
+    # CLEAN args
+    pb_clean_args = {'usemask': 'pb',
+                     'pbmask': 0.2}
+    tclean_args.update(pb_clean_args)
+    niter = tclean_args.get('niter', 100000)
+
+    # First pass
+    log('Calculating dirty image')
+    tclean_args['niter'] = 0
+    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
+    clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image')
+    fitsimage = clean_imagename.with_suffix(f'.image.fits')
+    exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
+               overwrite=True)
+
+    # Get rms
+    dirty = fits.open(fitsimage)[0]
+    rms = mad_std(dirty.data, ignore_nan=True) * u.Unit(dirty.header['BUNIT'])
+    rms = rms.to(u.mJy/u.beam)
+    log(f'Dirty image rms: {rms}')
+    threshold = nsigma * rms * u.beam
+
+    # Final run
+    tclean_args['niter'] = niter
+    tclean_args['threshold'] = f'{threshold.value}{threshold.unit}'
+    tclean_args['calcres'] = False
+    tclean_args['calcpsf'] = False
+    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
+    exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
+               overwrite=True)
+
+#def compute_dirty(data: Sequence['DataHandler'],
 #                  dirty_dir: Path,
 #                  config: SectionProxy,
 #                  nproc: int = 4,
 #                  redo: bool = False,
-#                  log: Callable = print) -> Sequence[DataHandler]:
+#                  log: Callable = print) -> Sequence['DataHandler']:
 #    """Compute dirty images.
 #
 #    It updates the data handler if previously not initiated.
