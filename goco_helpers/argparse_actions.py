@@ -335,27 +335,34 @@ def validate_paths(filenames: Union[str, List[str]],
 #            vals.append(apycoord.SkyCoord(ra, dec, frame=frame))
 #
 #        setattr(namespace, self.dest, vals)
-#
-## Path actions
-#class NormalizePath(argparse.Action):
-#    """Normalizes a path or filename."""
-#
-#    def __call__(self, parser, namespace, values, option_string=None):
-#        values = validate_paths(values)
-#        setattr(namespace, self.dest, values)
-#
-#class MakePath(argparse.Action):
-#    """Check and create directory if needed."""
-#
-#    def __call__(self, parser, namespace, values, option_string=None):
-#        values = validate_paths(values, mkdir=True)
-#        setattr(namespace, self.dest, values)
+
+# Path actions
+class NormalizePath(argparse.Action):
+    """Normalizes a path or filename."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        values = validate_paths(values)
+        setattr(namespace, self.dest, values)
+
+class MakePath(argparse.Action):
+    """Check and create directory if needed."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        values = validate_paths(values, mkdir=True)
+        setattr(namespace, self.dest, values)
 
 class CheckFile(argparse.Action):
     """Validates files and check if they exist."""
 
     def __call__(self, parser, namespace, values, option_string=None):
         values = validate_paths(values, check_is_file=True)
+        setattr(namespace, self.dest, values)
+
+class CheckDir(argparse.Action):
+    """Validates files and check if they exist."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        values = validate_paths(values, check_is_dir=True)
         setattr(namespace, self.dest, values)
 
 # Logger actions
