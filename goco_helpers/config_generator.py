@@ -53,7 +53,7 @@ def generate_config_dict(msname: Path,
 
     # Set continuum values
     log('Setting continuum parameters')
-    config['continuum']['width'] = get_widths(msname, log=log)
+    config['continuum'] = {'width': get_widths(msname, log=log)}
     print('=' * 80)
 
     return config
@@ -85,7 +85,8 @@ def update_config_dict(config: Dict,
 def _get_field_data(args: argparse.Namespace):
     field_data = {}
     for msname in args.uvdata:
-        fields = get_fields(msname)
+        fields = set(get_fields(msname))
+        args.log.info('Fields: %s', fields)
 
         for field in fields:
             if field in field_data:
@@ -113,6 +114,8 @@ def _convert_to_config(args: argparse.Namespace):
         config_dict['uvdata']['original'] = ','.join(map(str, original))
 
         # Set concat uvdata
+        preffix = args.preffix[0]
+        suffix = args.suffix[0]
         if len(original) == 1:
             config_dict['uvdata']['concat'] = config_dict['uvdata']['original']
         else:
@@ -120,13 +123,11 @@ def _convert_to_config(args: argparse.Namespace):
 
         # Generate parser
         config = ConfigParser()
-        config.read_dict(config_dict)
         config.read(args.template[0])
+        config.read_dict(config_dict)
 
         # Save config
         outdir = args.outdir[0]
-        preffix = args.preffix[0]
-        suffix = args.suffix[0]
         filename = outdir / f'{preffix}{field}{suffix}.cfg'
         with filename.open('w') as fl:
             config.write(fl)
