@@ -9,9 +9,9 @@ def main(args: list):
     # Argument parser
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', action='store_true')
-    parser.add_argument('uvdata', nargs=1, type=str)
     parser.add_argument('imagename', nargs=1, type=str)
     parser.add_argument('paramsfile', nargs=1, type=str)
+    parser.add_argument('uvdata', nargs='*', type=str)
     args = parser.parse_args(args)
 
     # Load params
@@ -19,9 +19,15 @@ def main(args: list):
     paramsfile = Path(args.paramsfile[0])
     tclean_params = json.loads(paramsfile.read_text())
 
+    # Visibilities
+    if len(args.uvdata) == 1:
+        vis = args.uvdata[0]
+    else:
+        vis = args.uvdata
+
     # Run tclean
     # pylint: disable=E0602
-    tclean(vis=args.uvdata[0], imagename=args.imagename[0], **tclean_params)
+    tclean(vis=vis, imagename=args.imagename[0], **tclean_params)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

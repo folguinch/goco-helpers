@@ -49,7 +49,7 @@ def get_tclean_params(
 
     return tclean_pars
 
-def tclean_parallel(vis: Path,
+def tclean_parallel(vis: Sequence[Path],
                     imagename: Path,
                     nproc: int,
                     tclean_args: dict,
@@ -80,18 +80,19 @@ def tclean_parallel(vis: Path,
         paramsfile.write_text(json.dumps(tclean_args, indent=4))
 
         # Run
+        inpvis = ' '.join(map(str, vis))
         cmd = os.environ.get('MPICASA', f'mpicasa -n {nproc} casa')
         script = Path(__file__).parent / 'run_tclean_parallel.py'
         logfile = datetime.now().isoformat(timespec='milliseconds')
         logfile = f'tclean_parallel_{logfile}.log'
         cmd = (f'{cmd} --nogui --logfile {logfile} '
-               f'-c {script} {vis} {imagename} {paramsfile}')
+               f'-c {script} {imagename} {paramsfile} {inpvis}')
         log(f'Running: {cmd}')
         # pylint: disable=R1732
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
         proc.wait()
 
-def pb_clean(vis: Path,
+def pb_clean(vis: Sequence[Path],
              imagename: Path,
              nproc: int,
              nsigma: float = 3.,
