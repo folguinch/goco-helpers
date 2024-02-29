@@ -1,6 +1,6 @@
 """Configuration file generator and tools."""
 from typing import Callable, Optional, List, Dict
-from configparser import ConfigParser
+from configparser import ConfigParser, ExtendedInterpolation
 from datetime import datetime
 from pathlib import Path
 import argparse
@@ -14,7 +14,8 @@ def read_config(filename: Path,
                 template: Optional[Path] = None,
                 defaults: Optional[Dict] = None) -> ConfigParser:
     """Read configuration file."""
-    config = ConfigParser(defaults=defaults)
+    config = ConfigParser(defaults=defaults,
+                          interpolation=ExtendedInterpolation())
     if template is not None:
         config.read(template)
     config.read(filename)
@@ -123,8 +124,8 @@ def _convert_to_config(args: argparse.Namespace):
 
         # Generate parser
         config = ConfigParser()
-        config.read(args.template[0])
         config.read_dict(config_dict)
+        config.read(args.defaults[0])
 
         # Save config
         outdir = args.outdir[0]
@@ -157,7 +158,7 @@ def config_gen(args: Optional[List] = None) -> None:
                         help='File name suffix')
     parser.add_argument('--output', nargs=1, action=actions.NormalizePath,
                         help='Output file name')
-    parser.add_argument('template', nargs=1, action=actions.CheckFile,
+    parser.add_argument('defaults', nargs=1, action=actions.CheckFile,
                         help='Template file name')
     parser.add_argument('uvdata', nargs='+', action=actions.CheckDir,
                         help='uv data MS name')
