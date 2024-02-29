@@ -10,9 +10,12 @@ import numpy.typing as npt
 def open_cube(imagename: 'pathlib.Path',
               import_format: str = 'casa') -> SpectralCube:
     """Read a cube."""
-    image = SpectralCube.read(imagename, use_dask=False, format=import_format)
+    image = SpectralCube.read(imagename,
+                              use_dask=import_format=='casa',
+                              format=import_format)
     image.allow_huge_operations = True
-    image.use_dask_scheduler('threads', num_workers=12)
+    if import_format == 'casa':
+        image.use_dask_scheduler('threads', num_workers=12)
 
     return image
 
@@ -302,7 +305,7 @@ def pb_crop(imagename: 'pathlib.Path',
     """Crop image based on PB limit.
 
     Args:
-      imagename: image file name.
+      imagename: Image file name.
       pbmap: PB map file name.
       level: PB map level for cutout.
 
@@ -318,7 +321,7 @@ def pb_crop(imagename: 'pathlib.Path',
 
     # Load images
     cube = open_cube(imagename, import_format=dtype)
-    pbmap = open_cube(imagename, import_format=dtype)
+    pbmap = open_cube(pbmap, import_format=dtype)
 
     # Get subcube
     cube_slice = cube.subcube_slices_from_mask(pbmap > level,

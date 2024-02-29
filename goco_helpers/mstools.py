@@ -43,8 +43,10 @@ def spws_per_eb(msname: 'pathlib.Path'):
     names = spws_for_names(msname)
     for val in names:
         for i, spw in enumerate(val):
-            aux = spws.get(i+1, [])
-            spws[i+1] =  aux.append(spw)
+            try:
+                spws[i+1].append(spw)
+            except KeyError:
+                spws[i+1] =  [spw]
 
     return spws
 
