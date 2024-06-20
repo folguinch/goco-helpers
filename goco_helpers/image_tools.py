@@ -1,6 +1,7 @@
 """Tools for working with cubes and 2D images."""
-from typing import Optional, Callable, Tuple, Sequence
+from typing import Optional, Callable, Tuple, Sequence, List
 
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 from spectral_cube import SpectralCube
 import astropy.units as u
@@ -19,38 +20,43 @@ def open_cube(imagename: 'pathlib.Path',
 
     return image
 
-def combine_positions(positions: npt.ArrayLike,
-                      method: str = 'mean') -> Tuple[int]:
+def combine_positions(positions: List[SkyCoord],
+                      method: str = 'mean') -> SkyCoord:
     """Combine position using the requested method."""
+    # Set coordinates in same units and system
+    coords = SkyCoord([pos.icrs for pos in positions])
+
+    # Combine by method
     if method == 'mean':
-        if len(positions) <= 2:
-            return tuple(np.mean(positions, axis=0, dtype=int))
-        mean = np.mean(positions, axis=0)
-        dist = np.sqrt((positions[:,0] - mean[0])**2 +
-                       (positions[:,1] - mean[1])**2)
+        ref = SkyCoord(np.mean(coords.ra), np.mean(coords.dec),
+                       frame=coords.frame)
+        if len(coords) <= 2:
+            return ref
+        dist = coords.separation(ref)
         ind = np.nanargmax(dist)
-        best_pos = np.delete(positions, ind, axis=0)
-        best_pos = np.mean(best_pos, axis=0, dtype=int)
+        best_pos = np.delete(coords, ind)
+        best_pos = SkyCoord(np.mean(best_pos.ra), np.mean(best_pos.dec),
+                            frame=best_pos.frame)
     else:
         raise NotImplementedError(f'Combine method: {method}')
 
-    return tuple(best_pos)
+    return best_pos
 
 def sum_collapse(cube: SpectralCube,
                  rms: Optional[u.Quantity] = None,
                  nsigma: float = 5.,
                  edge: int = 10,
-                 log: Callable = print) -> npt.ArrayLike:
+                 log: Callable = print) -> fits.PrimaryHDU:
     """Collapse cube along the spectral axis.
 
     If `rms` is given, then all values over `nsigma*rms` are summed.
 
     Args:
-      cube: spectral cube.
-      rms: optional; the cube noise level.
-      nsigma: optional; noise level to filter data.
-      edge: optional; border channels to ignore.
-      log: optional; logging function.
+      cube: Spectral cube.
+      rms: Optional. The cube noise level.
+      nsigma: Optional. Noise level to filter data.
+      edge: Optional. Border channels to ignore.
+      log: Optional. Logging function.
     """
     if rms is not None:
         log(f'Summing all values over: {nsigma * rms}')
@@ -61,23 +67,25 @@ def sum_collapse(cube: SpectralCube,
         log('Summing along spectral axis')
         imgsum = np.sum(cube.filled_data[edge:-edge, :, :], axis=0)
 
-    return imgsum
+    return fits.PrimaryHDU(imgsum,
+                           header=cube.wcs.sub(['logitude',
+                                                'latitude']).to_header())
 
 def max_collapse(cube: SpectralCube,
                  rms: Optional[u.Quantity] = None,
                  nsigma: float = 1.,
                  edge: int = 10,
-                 log: Callable = print) -> npt.ArrayLike:
+                 log: Callable = print) -> fits.PrimaryHDU:
     """Collapse cube along the spectral axis using `max` function.
 
     If `rms` is given, then all values below `nsigma*rms` are set to zero.
 
     Args:
-      cubename: cube filename.
-      rms: optional; the cube noise level.
-      nsigma: optional; noise level to filter data.
-      edge: optional; border channels to ignore.
-      log: optional; logging function.
+      cubename: Cube filename.
+      rms: Optional. The cube noise level.
+      nsigma: Optional. Noise level to filter data.
+      edge: Optional. Border channels to ignore.
+      log: Optional. Logging function.
     """
     # Load cube
     imgmax = np.nanmax(cube.filled_data[edge:-edge,:,:], axis=0)
@@ -87,15 +95,17 @@ def max_collapse(cube: SpectralCube,
         log('Replacing values below %f by zero', nsigma * rms)
         imgmax[imgmax < nsigma * rms] = 0.
 
-    return imgmax
+    return fits.PrimaryHDU(imgmax,
+                           header=cube.wcs.sub(['logitude',
+                                                'latitude']).to_header())
 
 def find_peak(cube: Optional[u.Quantity] = None,
-              image: Optional[npt.ArrayLike] = None,
+              image: Optional[fits.PrimaryHDU] = None,
               rms: Optional[u.Quantity] = None,
               collapse_func: Callable = max_collapse,
               diff: Optional[Sequence[npt.ArrayLike]] = None,
               log: Callable = print,
-              **kwargs) -> Tuple[npt.ArrayLike, int, int]:
+              **kwargs) -> Tuple[npt.ArrayLike, SkyCoord]:
     """Find an emission peak.
 
     If `image` is given, then the position of the maximum is given. Else,
@@ -104,26 +114,33 @@ def find_peak(cube: Optional[u.Quantity] = None,
     `ValueError` is raised.
 
     Args:
-      cube: spectral cube.
+      cube: Spectral cube.
       image: 2-D image.
-      rms: optional; cube noise level.
-      collapse_func: optional; collapse function.
-      diff: optional; differentials of the image along each axis.
-      log: optional; logging function.
-      kwargs: additional arguments to `collapse_func`
+      rms: Optional. Cube noise level.
+      collapse_func: Optional. Collapse function.
+      diff: Optional. Differentials of the image along each axis.
+      log: Optional. Logging function.
+      kwargs: Additional arguments to `collapse_func`.
+
+    Returns
+      The collapsed image, the sky coordinate of the peak.
     """
     # Collapsed image
     if image is not None:
         log('Looking peak in input image')
         collapsed = image
+        wcs = WCS(image.header, naxis=2)
     elif cube is not None:
         log('Looking peak in collapsed cube')
-        collapsed = collapse_func(cube.value, rms=rms.to(cube.unit).value,
-                                  log=log, **kwargs)
+        collapsed = collapse_func(cube, rms=rms, log=log, **kwargs)
+        wcs = cube.wcs.sub(['longitude', 'latitude'])
+    else:
+        raise ValueError('Cannot find spectrum position')
 
     # Find peak
     if diff is None:
-        ymax, xmax = np.unravel_index(np.nanargmax(collapsed), collapsed.shape)
+        ymax, xmax = np.unravel_index(np.nanargmax(collapsed.data),
+                                      collapsed.data.shape)
     else:
         # Search for peaks
         xmax = np.diff((diff[1] > 0).view(np.int8), axis=1)
@@ -134,18 +151,21 @@ def find_peak(cube: Optional[u.Quantity] = None,
         indyy = indyy + 1
 
         # Select the one with the highest value
-        ind = np.argsort(collapsed[indxy, indxx])[::-1]
+        ind = np.argsort(collapsed.data[indxy, indxx])[::-1]
         indxy = indxy[ind]
         indxx = indxx[ind]
         for p in zip(indxx, indxy):
             if p in zip(indyx, indyy):
                 if (rms is not None and
-                    collapsed[p[1], p[0]] <= rms.to(cube.unit).value):
+                    collapsed.data[p[1], p[0]] <= rms.to(cube.unit).value):
                     continue
                 xmax, ymax = p
                 break
 
-    return collapsed, xmax, ymax
+    # Convert to coordinate
+    coord = SkyCoord.from_pixel(xmax, ymax, wcs)
+
+    return collapsed, coord
 
 def get_common_position(images: Sequence['pathlib.Path'],
                         method: str,
@@ -155,11 +175,11 @@ def get_common_position(images: Sequence['pathlib.Path'],
     """Find the position of peak emission common to all input cubes.
 
     Args:
-      images: list of image files.
-      method: method to collapse the images (max, sum).
-      save_collapsed: optional; save collapsed image.
-      resume: optional; resume calculation.
-      log: optional; logging function.
+      images: List of image files.
+      method: Method to collapse the images (max, sum).
+      save_collapsed: Optional. Save collapsed image.
+      resume: Optional. Resume calculation.
+      log: Optional. Logging function.
 
     Returns:
       A tuple with (x, y) positions.
@@ -168,17 +188,19 @@ def get_common_position(images: Sequence['pathlib.Path'],
     positions = []
     for image in images:
         # Potential collapsed name
+        log('-' * 15)
         imagename = image.with_suffix(f'.{method}.fits')
 
         # Restore
         if resume and imagename.exists():
+            log(f'Loading collapsed image: {imagename}')
             collapsed = fits.open(imagename)
-            _, *position = find_peak(image=collapsed.data)
+            _, position = find_peak(image=collapsed.data)
             positions.append(position)
             continue
 
         # Find peak
-        log('Finding position in cube: %s', image)
+        log(f'Finding position in cube: {image}')
         if method == 'sum':
             collapse_func = sum_collapse
         elif method == 'max':
@@ -188,16 +210,15 @@ def get_common_position(images: Sequence['pathlib.Path'],
         cube = open_cube(image)
 
         # Find peak
-        collapsed, *position = find_peak(cube=cube,
-                                         collapse_func=collapse_func,
-                                         log=log)
+        collapsed, position = find_peak(cube=cube,
+                                        collapse_func=collapse_func,
+                                        log=log)
         positions.append(position)
 
         # Save collapsed
         if save_collapsed:
-            wcs = cube.wcs.sub(['logitude', 'latitude'])
-            hdu = fits.PrimaryHDU(collapsed, header=wcs.to_header())
-            hdu.writeto(imagename, overwrite=True)
+            log('Saving collapsed image: {imagename}')
+            collapsed.writeto(imagename, overwrite=True)
 
     # Combine peaks
     log(f'Individual peaks: {positions}')
@@ -208,7 +229,7 @@ def get_common_position(images: Sequence['pathlib.Path'],
 
 def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
                  cube_file: Optional['pathlib.Path'] = None,
-                 position: Tuple[int] = None,
+                 position: Optional[SkyCoord] = None,
                  beam_avg: bool = False,
                  beam: Optional[u.Quantity] = None,
                  resume: bool = False,
@@ -220,13 +241,13 @@ def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
     recalculated from `cube_file` (if present).
     
     Args:
-      spec_file: spectrum file.
-      cube_file: cube file name.
-      position: optional; position where to extract the spectrum from.
-      beam_avg: optional; use a beam average?
-      beam: optional; beam of the data.
-      resume: optional; 
-      log: optional; logging function.
+      spec_file: Optional. Spectrum file.
+      cube_file: Optional. Cube file name.
+      position: Optional. Position where to extract the spectrum from.
+      beam_avg: Optional. Use a beam average?
+      beam: Optional. Beam of the data.
+      resume: Optional. Continure from where it left?
+      log: Optional. Logging function.
 
     Returns:
       An array with the frequency axis
@@ -235,7 +256,7 @@ def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
     # Generate a spec_file name
     use_cube = cube_file is not None and position is not None
     if spec_file is None and use_cube:
-        suffix = f'.x{position[0]}_y{position[1]}.spec.dat'
+        suffix = f'.ra{position.ra.deg:.4f}_dec{position.dec.deg:.4f}.spec.dat'
         spec_file = cube_file.with_suffix(suffix)
 
     # Load spec
@@ -257,6 +278,8 @@ def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
         #cube = np.squeeze(cube.data) * u.Unit(header['BUNIT'])
         cube = cube.to(u.Jy/u.beam)
         cube = cube.with_spectral_unit(u.GHz)
+        wcs = cube.wcs.sub(['longitude', 'latitude'])
+        xpix, ypix = tuple(map(int, position.to_pixel(wcs)))
         freq = cube.spectral_axis
         log('Cube shape: %s', cube.shape)
 
@@ -264,7 +287,6 @@ def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
         if beam_avg:
             # Beam size
             log('Averaging over beam')
-            wcs = cube.wcs.sub(['longitude', 'latitude'])
             pixsize = np.sqrt(wcs.proj_plane_pixel_area())
             if beam is None:
                 if hasattr(cube, 'beam'):
@@ -277,15 +299,15 @@ def get_spectrum(spec_file: Optional['pathlib.Path'] = None,
 
             # Filter data
             y_cube, x_cube = np.indices(cube.shape[-2:])
-            dist = np.sqrt((x_cube - position[0])**2. +
-                           (y_cube - position[1])**2.)
+            dist = np.sqrt((x_cube - xpix)**2. +
+                           (y_cube - ypix)**2.)
             mask = dist > radius
             masked = np.ma.array(cube.unmasked_data[:],
                                  mask=np.tile(mask, (cube.shape[0], 1)))
             spectrum = np.ma.sum(masked, axis=(1, 2)) / np.sum(~mask)
         else:
             log('Using single pixel spectrum')
-            spectrum = cube.unmasked_data[:, position[1], position[0]]
+            spectrum = cube.unmasked_data[:, ypix, xpix]
         log(f'Number of channels: {spectrum.size}')
 
         # Save to file

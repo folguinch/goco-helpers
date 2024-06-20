@@ -96,6 +96,7 @@ def pb_clean(vis: Sequence[Path],
              imagename: Path,
              nproc: int,
              nsigma: float = 3.,
+             thresh_niter: float = 2,
              log: Callable = print,
              **tclean_args: dict):
     """Perform cleaning with a PB mask."""
@@ -104,29 +105,36 @@ def pb_clean(vis: Sequence[Path],
                      'pbmask': 0.2}
     tclean_args.update(pb_clean_args)
     niter = tclean_args.get('niter', 100000)
-
-    # First pass
-    log('Calculating dirty image')
-    tclean_args['niter'] = 0
-    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
     clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image')
-    fitsimage = clean_imagename.with_suffix(f'.image.fits')
-    exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
-               overwrite=True)
 
-    # Get rms
-    dirty = fits.open(fitsimage)[0]
-    rms = mad_std(dirty.data, ignore_nan=True) * u.Unit(dirty.header['BUNIT'])
-    rms = rms.to(u.mJy/u.beam)
-    log(f'Dirty image rms: {rms}')
-    threshold = nsigma * rms * u.beam
+    for i in range(thresh_niter):
+        # First pass
+        if i == 0:
+            log('Calculating dirty image')
+            tclean_args['niter'] = 0
+        else:
+            tclean_args['niter'] = niter
+            tclean_args['calcres'] = False
+            tclean_args['calcpsf'] = False
+        tclean_parallel([vis], imagename, nproc, tclean_args, log=log)
+        fitsimage = clean_imagename.with_suffix(f'.threshniter{i}.image.fits')
+        exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
+                overwrite=True)
+
+        # Get rms
+        image = fits.open(fitsimage)[0]
+        rms = mad_std(image.data, ignore_nan=True) * u.Unit(image.header['BUNIT'])
+        rms = rms.to(u.mJy/u.beam)
+        threshold = nsigma * rms * u.beam
+        log(f'Threshold iteration {i}: {threshold}')
+
+        # Set threshold
+        tclean_args['threshold'] = f'{threshold.value}{threshold.unit}'
 
     # Final run
     tclean_args['niter'] = niter
-    tclean_args['threshold'] = f'{threshold.value}{threshold.unit}'
-    tclean_args['calcres'] = False
-    tclean_args['calcpsf'] = False
-    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
+    tclean_parallel([vis], imagename, nproc, tclean_args, log=log)
+    fitsimage = clean_imagename.with_suffix(f'.image.fits')
     exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
                overwrite=True)
 

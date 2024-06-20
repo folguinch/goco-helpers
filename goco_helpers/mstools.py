@@ -60,14 +60,14 @@ def flag_freqs_to_channels(spw: int,
     mstool.open(f'{uvdata}')
 
     # MS frequency axis to masked array
-    freqs = mstool.cvelfreqs(spwids=[spw], outframe='LSRK') * u.Hz
+    freqs = mstool.cvelfreqs(spwids=[int(spw)], outframe='LSRK') * u.Hz
     freqs = np.ma.array(freqs.to(u.GHz).value)
     mstool.close()
 
     # Iterate over ranges
     for freq_range in flags:
-        freq_low = np.min(freq_range).to(u.GHz)
-        freq_high = np.max(freq_range).to(u.GHz)
+        freq_low = min(freq_range).to(u.GHz).value
+        freq_high = max(freq_range).to(u.GHz).value
         freqs = np.ma.masked_where((freqs>=freq_low) & (freqs<=freq_high),
                                    freqs)
 
@@ -227,15 +227,15 @@ def get_widths(msname: Optional['pathlib.Path'] = None,
         # Find number of channels per bin
         max_width = min(max_width_min[0], max_width_max[0])
         ngroups = info['bandwidth'] / max_width
-        ngroups = int(ngroups.to(1))
+        ngroups = int(np.ceil(ngroups.to(1).value))
         if ngroups <= 1:
             binsize = info['nchans']
         else:
             ngroups, binsize = find_near_exact_denominator(info['nchans'],
                                                            ngroups)
         log(f'Minumum value of maximum widths: {max_width:.3f}')
-        log(f'Number of channel groups: {ngroups}')
-        log(f'Channel bins: {binsize}')
+        log((f"SPW bandwidth: {info['bandwidth']} " 
+             f' ({ngroups} groups of {binsize} channels)'))
 
         # Store value
         widths.append(binsize)

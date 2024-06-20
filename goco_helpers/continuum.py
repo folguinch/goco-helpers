@@ -7,6 +7,7 @@ import argparse
 import os
 import sys
 
+from casaplotms import plotms
 from casatasks import flagdata, flagmanager, split
 import astropy.units as u
 import numpy as np
@@ -20,7 +21,9 @@ import goco_helpers.argparse_parents as parents
 def get_continuum(msname: 'pathlib.Path',
                   output: 'pathlib.Path',
                   config: Optional[SectionProxy] = None,
-                  flags: Optional[str] = None):
+                  flags: Optional[str] = None,
+                  plotdir: Optional['pathlib.Path'] = None,
+                  **plotargs):
     """Calculate continuum visibilities.
 
     Args:
@@ -31,10 +34,26 @@ def get_continuum(msname: 'pathlib.Path',
     """
     # Prepare ms
     if flags is not None:
+        # Clean previous flag versions
+        flag_list = flagmanager(vis=f'{msname}', mode='list')
+        for flag_ver in flag_list.values():
+            try:
+                if 'before_cont_flags' in list(flag_ver.values()):
+                    flagmanager(vis=f'{msname}', mode='remove',
+                                versionname='before_cont_flags')
+                elif 'afoli_flags' in list(flag_ver.values()):
+                    flagmanager(vis=f'{msname}', mode='remove',
+                                versionname='before_cont_flags')
+            except AttributeError:
+                continue
+
+        # Flag data
         flagmanager(vis=f'{msname}', mode='save',
                     versionname='before_cont_flags')
         flagdata(vis=f'{msname}', mode='manual', spw=flags,
                  flagbackup=False)
+        flagmanager(vis=f'{msname}', mode='save',
+                    versionname='afoli_flags')
 
     # Widths
     if config is not None:
@@ -44,9 +63,27 @@ def get_continuum(msname: 'pathlib.Path',
         width = get_widths(msname)
         datacolumn = 'data'
 
+    # Plot MSs
+    if plotdir is not None and plotms is not None:
+        plotfile = plotdir / msname.with_suffix('.png').name
+        if flags is not None:
+            plotfile = plotfile.with_suffix('.flagged.png')
+        plotms(vis=f'{msname}', xaxis='freq', yaxis='amplitude',
+               title='Not averaged data', showgui=False,
+               overwrite=True, plotfile=f'{plotfile}',
+               **plotargs)
+
     # Split data
     split(vis=f'{msname}', outputvis=f'{output}', width=width,
           datacolumn=datacolumn)
+
+    # Plot MSs
+    if plotdir is not None and plotms is not None:
+        plotfile = plotdir / output.with_suffix('.png').name
+        plotms(vis=f'{output}', xaxis='freq', yaxis='amplitude',
+               title='Averaged data', showgui=False,
+               overwrite=True, plotfile=f'{plotfile}',
+               **plotargs)
 
     # Restore flags
     if flags is not None:
