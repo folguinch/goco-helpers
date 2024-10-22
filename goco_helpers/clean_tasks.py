@@ -1,6 +1,5 @@
 """Tools for running the `tclean` CASA task."""
-#from typing import Any, Callable, List, Optional, Sequence, TypeVar, Mapping
-from typing import Callable, Sequence, Dict
+from typing import Callable, Sequence, Dict, Tuple, Optional
 from datetime import datetime
 from pathlib import Path
 import json
@@ -277,6 +276,7 @@ def iter_clean(vis: Sequence[Path],
         clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image')
     thresholds = []
 
+    # Iterate
     for i in range(thresh_niter):
         # First pass
         if i == 0:
@@ -294,22 +294,22 @@ def iter_clean(vis: Sequence[Path],
         # Get rms
         _, rms = image_sn(fitsimage)
         thresholds.append(nsigma * rms * u.beam)
-        log(f'Threshold from iteration {i}: {threshold[i]}')
+        log(f'Threshold from iteration {i}: {thresholds[i]}')
 
         # Check threshold divergence
         if i > 0 and thresholds[i] > thresholds[i-1]:
             log('Thresholds diverging, CLEAN finished')
-            final_fitsimage = clean_imagename.with_suffix(f'.final.image.fits')
+            final_fitsimage = clean_imagename.with_suffix('.final.image.fits')
             os.system('mv {fitsimage} {final_fitsimage}')
             return {'fitsimage': final_fitsimage, 'thresholds': thresholds}
 
         # Set threshold
-        tclean_args['threshold'] = f'{threshold[i].value}{threshold[i].unit}'
+        tclean_args['threshold'] = f'{thresholds[i].value}{thresholds[i].unit}'
 
     # Final run
     tclean_args['niter'] = niter
     tclean_parallel([vis], imagename, nproc, tclean_args, log=log)
-    fitsimage = clean_imagename.with_suffix(f'.final.image.fits')
+    fitsimage = clean_imagename.with_suffix('.final.image.fits')
     exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
                overwrite=True)
 
@@ -317,7 +317,7 @@ def iter_clean(vis: Sequence[Path],
     if tclean_args.get('pbcor', False):
         pbcorimage = clean_imagename.with_suffix(
             f'{clean_imagename.suffix}.pbcor')
-        pbcor_fits_image = pbcorimage.with_suffix(f'.final.image.pbcor.fits')
+        pbcor_fits_image = pbcorimage.with_suffix('.final.image.pbcor.fits')
         exportfits(imagename=f'{pbcorimage}', fitsimage=f'{pbcor_fits_image}',
                    overwrite=True)
 

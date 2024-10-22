@@ -132,8 +132,8 @@ def max_chan_width(freq: u.Quantity,
 
     Given the desired reduction in peak response value, it calculates the
     maximum channel width accepted. The maximum channel width is calculated by
-    solving the equations in [CASA
-    guides](https://safe.nrao.edu/wiki/pub/Main/RadioTutorial/BandwidthSmearing.pdf).
+    solving the equations in [CASA guides]
+    (https://safe.nrao.edu/wiki/pub/Main/RadioTutorial/BandwidthSmearing.pdf).
 
     Args:
       freq: frequency.
@@ -234,7 +234,7 @@ def get_widths(msname: Optional['pathlib.Path'] = None,
             ngroups, binsize = find_near_exact_denominator(info['nchans'],
                                                            ngroups)
         log(f'Minumum value of maximum widths: {max_width:.3f}')
-        log((f"SPW bandwidth: {info['bandwidth']} " 
+        log((f"SPW bandwidth: {info['bandwidth']} "
              f' ({ngroups} groups of {binsize} channels)'))
 
         # Store value

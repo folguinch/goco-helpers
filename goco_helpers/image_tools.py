@@ -3,6 +3,7 @@ from typing import Optional, Callable, Tuple, Sequence, List
 
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+from astropy.wcs import WCS
 from spectral_cube import SpectralCube
 import astropy.units as u
 import numpy as np

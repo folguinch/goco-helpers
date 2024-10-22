@@ -157,7 +157,8 @@ def quick_continuum(args: Optional[List] = None):
     tclean_pars['deconvolver'] = 'hogbom'
     tclean_pars['weighting'] = 'briggs'
     tclean_pars['robust'] = 0.5
-    pb_clean(msnames, imagename, args.nproc[0], log=args.log.info, **tclean_pars)
+    pb_clean(msnames, imagename, args.nproc[0], log=args.log.info,
+             **tclean_pars)
 
 if __name__ == '__main__':
     quick_continuum(sys.argv[1:])
