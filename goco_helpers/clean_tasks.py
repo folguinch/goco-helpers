@@ -138,7 +138,7 @@ def tclean_parallel(vis: Sequence[Path],
     directory where the program is executed.
 
     Args:
-      vis: measurement set.
+      vis: measurement sets.
       imagename: image file name.
       nproc: number of processes.
       tclean_args: other arguments for tclean.
@@ -146,7 +146,7 @@ def tclean_parallel(vis: Sequence[Path],
     """
     if nproc == 1:
         tclean_args.update({'parallel': False})
-        tclean(vis=str(vis), imagename=str(imagename), **tclean_args)
+        tclean(vis=list(map(str, vis)), imagename=str(imagename), **tclean_args)
     else:
         # Save tclean params
         tclean_args.update({'parallel': True})
