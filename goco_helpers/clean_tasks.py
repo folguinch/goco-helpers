@@ -33,7 +33,7 @@ def image_sn(fitsimage: Path,
 def get_tclean_params(
     config: SectionProxy,
     required_keys: Sequence[str] = ('cell', 'imsize'),
-    ignore_keys: Sequence[str] = ('vis', 'imagename', 'spw'),
+    ignore_keys: Sequence[str] = ('vis', 'imagename', 'spw', 'nsigma'),
     float_keys: Sequence[str]  = ('robust', 'pblimit', 'pbmask',
                                   'noisethreshold', 'sidelobethreshold',
                                   'lownoisethreshold', 'minbeamfrac',
