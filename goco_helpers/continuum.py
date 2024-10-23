@@ -83,10 +83,13 @@ def get_continuum(msname: 'pathlib.Path',
     # Plot MSs
     if plotdir is not None and plotms is not None:
         plotfile = plotdir / output.with_suffix('.png').name
-        plotms(vis=f'{output}', xaxis='freq', yaxis='amplitude',
-               title='Averaged data', showgui=False,
-               overwrite=True, plotfile=f'{plotfile}',
-               **plotargs)
+        try:
+            plotms(vis=f'{output}', xaxis='freq', yaxis='amplitude',
+                   title='Averaged data', showgui=False,
+                   overwrite=True, plotfile=f'{plotfile}',
+                   **plotargs)
+        except RuntimeError:
+            print('WARN: Cannot plot MS data')
 
     # Restore flags
     if flags is not None:
