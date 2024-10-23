@@ -68,10 +68,13 @@ def get_continuum(msname: 'pathlib.Path',
         plotfile = plotdir / msname.with_suffix('.png').name
         if flags is not None:
             plotfile = plotfile.with_suffix('.flagged.png')
-        plotms(vis=f'{msname}', xaxis='freq', yaxis='amplitude',
-               title='Not averaged data', showgui=False,
-               overwrite=True, plotfile=f'{plotfile}',
-               **plotargs)
+        try:
+            plotms(vis=f'{msname}', xaxis='freq', yaxis='amplitude',
+                   title='Not averaged data', showgui=False,
+                   overwrite=True, plotfile=f'{plotfile}',
+                   **plotargs)
+        except RuntimeError:
+            print('WARN: Cannot plot MS data')
 
     # Split data
     split(vis=f'{msname}', outputvis=f'{output}', width=width,
