@@ -25,6 +25,7 @@ def read_config(filename: Path,
 def generate_config_dict(msname: Path,
                          name: str,
                          field: str,
+                         pbcoverage: float = 2.,
                          log: Callable = print) -> Dict:
     """Generate a configuration dictionary.
 
@@ -36,9 +37,11 @@ def generate_config_dict(msname: Path,
     - `continuum`: sets the `width` value for binning.
     
     Args:
-      msname: uv data to extract imaging properties.
-      field: field name.
-      log: optional; logging function.
+      msname: UV data to extract imaging properties.
+      name: Source name.
+      field: Field name.
+      pbcoverage: Optional. Image size in terms of primary beam size.
+      log: Optional. Logging function.
     """
     # Create config and update field
     config = {'DEFAULT': {'name': name,
@@ -49,7 +52,8 @@ def generate_config_dict(msname: Path,
 
     # Set imaging values
     log('Setting imaging parameters')
-    config['imaging'] = imaging_parameters(msname, log=log)
+    config['imaging'] = imaging_parameters(msname, pbcoverage=pbcoverage,
+                                           log=log)
     print('=' * 80)
 
     # Set continuum values
@@ -61,15 +65,23 @@ def generate_config_dict(msname: Path,
 
 def update_config_dict(config: Dict,
                        msname: Path,
+                       pbcoverage: float = 2.,
                        log: Callable = print) -> Dict:
-    """Update configuration dictionary with values from uv data."""
+    """Update configuration dictionary with values from uv data.
+
+    Args:
+      config: Configuration dictionary.
+      msname: Visibility file name.
+      pbcoverage: Optional. Image size in terms of primary beam size.
+      log: Optional. Logging function.
+    """
     # Increase number of EBs
     config['DEFAULT']['neb'] += 1
     config['uvdata']['original'].append(msname)
 
     # Get new imaging parameters
     log('Getting new imaging parameters')
-    img_pars = imaging_parameters(msname, log=log)
+    img_pars = imaging_parameters(msname, pbcoverage=pbcoverage, log=log)
     config['imaging']['cell'] = min(img_pars['cell'],
                                     config['imaging']['cell'])
     config['imaging']['imsize'] = max(img_pars['imsize'],
@@ -91,16 +103,22 @@ def _get_field_data(args: argparse.Namespace):
 
         for field in fields:
             if field in field_data:
-                field_data[field] = update_config_dict(field_data[field],
-                                                       msname,
-                                                       log=args.log.info)
+                field_data[field] = update_config_dict(
+                    field_data[field],
+                    msname,
+                    pbcoverage=args.pbcoverage[0],
+                    log=args.log.info
+                )
             else:
                 preffix = args.preffix[0]
                 name = f'{preffix}{field}'
-                field_data[field] = generate_config_dict(msname,
-                                                         name,
-                                                         field,
-                                                         log=args.log.info)
+                field_data[field] = generate_config_dict(
+                    msname,
+                    name,
+                    field,
+                    pbcoverage=args.pbcoverage[0],
+                    log=args.log.info
+                )
 
     args.field_data = field_data
 
@@ -152,6 +170,8 @@ def config_gen(args: Optional[List] = None) -> None:
     parser.add_argument('--outdir', nargs=1, default=[Path('./')],
                         action=actions.CheckDir,
                         help='Output directory')
+    parser.add_argument('--pbcoverage', nargs=1, type=float, default=[2.],
+                        help='Multiplicative factor for image size')
     parser.add_argument('--preffix', nargs=1, default=[''],
                         help='File name preffix')
     parser.add_argument('--suffix', nargs=1, default=[''],
