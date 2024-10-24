@@ -146,7 +146,8 @@ def tclean_parallel(vis: Sequence[Path],
     """
     if nproc == 1:
         tclean_args.update({'parallel': False})
-        tclean(vis=list(map(str, vis)), imagename=str(imagename), **tclean_args)
+        info = tclean(vis=list(map(str, vis)), imagename=str(imagename),
+                      **tclean_args)
     else:
         # Save tclean params
         tclean_args.update({'parallel': True})
@@ -294,7 +295,8 @@ def iter_clean(vis: Sequence[Path],
         # Get rms
         _, rms = image_sn(fitsimage)
         thresholds.append(nsigma * rms * u.beam)
-        log(f'Threshold from iteration {i}: {thresholds[i]}')
+        log((f'Threshold from iteration {i}: '
+             f'{nsigma}x{rms * u.beam} = {thresholds[i]}'))
 
         # Check threshold divergence
         if i > 0 and thresholds[i] > thresholds[i-1]:
@@ -308,7 +310,7 @@ def iter_clean(vis: Sequence[Path],
 
     # Final run
     tclean_args['niter'] = niter
-    tclean_parallel([vis], imagename, nproc, tclean_args, log=log)
+    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
     fitsimage = clean_imagename.with_suffix('.final.image.fits')
     exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
                overwrite=True)
