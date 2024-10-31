@@ -259,7 +259,7 @@ def auto_masking(vis: Sequence[Path],
     if tclean_nsigma:
         info = nsigma_tclean(vis, imagename, nproc=nproc, nsigma=nsigma,
                              log=log, **tclean_args)
-    else
+    else:
         info = iter_clean(vis, imagename, nproc=nproc, nsigma=nsigma,
                           thresh_niter=thresh_niter, log=log, **tclean_args)
 
