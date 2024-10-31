@@ -17,6 +17,15 @@ from .common_types import SectionProxy
 #from .data_handler import DataHandler
 from .utils import get_func_params#, iter_data
 
+def get_clean_imagename(imagename: Path, tclean_args: Dict) -> Path:
+    """Determine the final file name for the image based on deconvolver."""
+    if tclean_args.get('deconvolver', 'hogbom') == 'mtmfs':
+        clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image.tt0')
+    else:
+        clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image')
+
+    return clean_imagename
+
 def image_sn(fitsimage: Path,
              default_unit: u.Unit = u.mJy/u.beam
              ) -> Tuple[u.Quantity, u.Quantity]:
@@ -172,6 +181,7 @@ def pb_clean(vis: Sequence[Path],
              nproc: int = 1,
              nsigma: float = 3.,
              thresh_niter: float = 2,
+             tclean_nsigma: bool = False,
              log: Callable = print,
              pbmask: float = 0.2,
              **tclean_args: Dict) -> Dict:
@@ -183,6 +193,7 @@ def pb_clean(vis: Sequence[Path],
       nproc: Optional. Number of parallel processes.
       nsigma: Optional. Noise (rms) level for the threshold.
       thresh_niter: Optional. Number of iteration to perform.
+      tclean_nsigma: Optional. Use `tclean` built-in nsigma?
       log: Optional. Logging function.
       pbmask: Optional. Mask PB limit.
       tclean_args: Optional. Additional arguments for `tclean`.
@@ -193,8 +204,12 @@ def pb_clean(vis: Sequence[Path],
     pb_clean_args = {'usemask': 'pb',
                      'pbmask': pbmask}
     tclean_args.update(pb_clean_args)
-    info = iter_clean(vis, imagename, nproc=nproc, nsigma=nsigma,
-                      thresh_niter=thresh_niter, log=log, **tclean_args)
+    if tclean_nsigma:
+        info = nsigma_tclean(vis, imagename, nproc=nproc, nsigma=nsigma,
+                             log=log, **tclean_args)
+    else:
+        info = iter_clean(vis, imagename, nproc=nproc, nsigma=nsigma,
+                          thresh_niter=thresh_niter, log=log, **tclean_args)
 
     return info
 
@@ -206,6 +221,7 @@ def auto_masking(vis: Sequence[Path],
                  is_combined: bool = False,
                  nsigma: float = 3.,
                  thresh_niter: float = 2,
+                 tclean_nsigma: bool = False,
                  log: Callable = print,
                  **tclean_args: dict) -> Dict:
     """Clean images iteratively using CASA auto-masking.
@@ -224,6 +240,7 @@ def auto_masking(vis: Sequence[Path],
       is_combined: Optional. Is the data from the 12m and 7m arrays?
       nsigma: Optional. Noise (rms) level for the threshold.
       thresh_niter: Optional. Number of iteration to perform.
+      tclean_nsigma: Optional. Use `tclean` built-in nsigma?
       log: Optional. Logging function.
       tclean_args: Optional. Additional arguments for `tclean`.
 
@@ -239,10 +256,66 @@ def auto_masking(vis: Sequence[Path],
 
     # Clean iteratively
     tclean_args.update(clean_args)
-    info = iter_clean(vis, imagename, nproc=nproc, nsigma=nsigma,
-                      thresh_niter=thresh_niter, log=log, **tclean_args)
+    if tclean_nsigma:
+        info = nsigma_tclean(vis, imagename, nproc=nproc, nsigma=nsigma,
+                             log=log, **tclean_args)
+    else
+        info = iter_clean(vis, imagename, nproc=nproc, nsigma=nsigma,
+                          thresh_niter=thresh_niter, log=log, **tclean_args)
 
     return info
+
+
+
+def nsigma_tclean(vis: Sequence[Path],
+                  imagename: Path,
+                  nproc: int = 1,
+                  nsigma: float = 3.,
+                  log: Callable = print,
+                  **tclean_args: dict) -> Dict:
+    """Clean using built-in `tclean` `nsigma` threshold.
+
+    Args:
+      vis: List of visibilities.
+      imagename: Base name for image name.
+      nproc: Optional. Number of parallel processes.
+      nsigma: Optional. Noise (rms) level for the threshold.
+      log: Optional. Logging function.
+      tclean_args: Optional. Additional arguments for `tclean`.
+
+    Returns:
+      A dictionary with the final image file name (`fitsimage`), threshold for
+      each step (`thresholds`).
+    """
+      
+    # CLEAN args
+    tclean_args.setdefault('niter', 100000)
+    tclean_args['nsigma'] = nsigma
+    clean_imagename = get_clean_imagename(imagename, tclean_args)
+
+    # Clean and export
+    if 'threshold' in tclean_args:
+        del tclean_args['threshold']
+    tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
+    fitsimage = clean_imagename.with_suffix(f'.final.image.fits')
+    exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
+               overwrite=True)
+
+    # Get rms
+    _, rms = image_sn(fitsimage)
+    thresholds = [nsigma * rms * u.beam]
+    log((f'Estimated threshold: '
+         f'{nsigma}x{rms * u.beam} = {thresholds[0]}'))
+
+    # Pbcor image to fits
+    if tclean_args.get('pbcor', False):
+        pbcorimage = clean_imagename.with_suffix(
+            f'{clean_imagename.suffix}.pbcor')
+        pbcor_fits_image = pbcorimage.with_suffix('.final.image.pbcor.fits')
+        exportfits(imagename=f'{pbcorimage}', fitsimage=f'{pbcor_fits_image}',
+                   overwrite=True)
+
+    return {'fitsimage': fitsimage, 'thresholds': thresholds}
 
 def iter_clean(vis: Sequence[Path],
                imagename: Path,
@@ -271,10 +344,7 @@ def iter_clean(vis: Sequence[Path],
     """
     # CLEAN args
     niter = tclean_args.get('niter', 100000)
-    if tclean_args.get('deconvolver', 'hogbom') == 'mtmfs':
-        clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image.tt0')
-    else:
-        clean_imagename = imagename.with_suffix(f'{imagename.suffix}.image')
+    clean_imagename = get_clean_imagename(imagename, tclean_args)
     thresholds = []
 
     # Iterate
