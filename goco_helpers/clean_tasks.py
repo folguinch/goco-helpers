@@ -76,7 +76,8 @@ def get_tclean_params(
 def automasking_params(b75: u.Quantity,
                        is_cube: bool,
                        is_aca: bool = False,
-                       is_combined: bool = False) -> Dict:
+                       is_combined: bool = False,
+                       predefined: Optional[Dict] = None) -> Dict:
     """Get recommended auto-masking parameters.
 
     Parameters are taken from the table in the [CASA guides](
@@ -130,6 +131,13 @@ def automasking_params(b75: u.Quantity,
                           'minbeamfrac': 0.3,
                           'negativethreshold': negativethreshold,
                           'fastnoise': True}
+
+    # Replace predefined values
+    if predefined is not None:
+        for parameter in parameters:
+            if parameter in predefined:
+                parameters[parameter] = predefined[parameter]
+
     return parameters
 
 def tclean_parallel(vis: Sequence[Path],
@@ -252,7 +260,8 @@ def auto_masking(vis: Sequence[Path],
     if b75 is not None:
         is_cube = 'cube' in tclean_args.get('specmode', 'mfs')
         clean_args.update(automasking_params(b75, is_cube, is_aca=is_aca,
-                                             is_combined=is_combined))
+                                             is_combined=is_combined,
+                                             predifined=tclean_args))
 
     # Clean iteratively
     tclean_args.update(clean_args)
