@@ -261,7 +261,7 @@ def auto_masking(vis: Sequence[Path],
         is_cube = 'cube' in tclean_args.get('specmode', 'mfs')
         clean_args.update(automasking_params(b75, is_cube, is_aca=is_aca,
                                              is_combined=is_combined,
-                                             predifined=tclean_args))
+                                             predefined=tclean_args))
 
     # Clean iteratively
     tclean_args.update(clean_args)
