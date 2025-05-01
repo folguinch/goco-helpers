@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goco-helpers"
-version = "0.1.0"
+version = "0.2.0"
 description = "Package grouping helper functions for goco"
 authors = ["Fernando Olguin <f.olguin.ch@gmail.com>"]
 readme = "README.md"
@@ -12,6 +12,7 @@ astropy = "^6.0.0"
 casatasks = "^6.6.0.20"
 casatools = "^6.6.0.20"
 casadata = "^2023.9.18"
+casaplotms = "^2.5.2"
 spectral-cube = "^0.6.5"
 numpy = "^1.26.3"
 
