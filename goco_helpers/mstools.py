@@ -249,7 +249,7 @@ def imaging_parameters(msname: Optional['pathlib.Path'] = None,
                        **ms_info) -> Dict:
     """Determine imaging parameters from uv data.
 
-    Values accepted keyword arguments:
+    Values accepted for keyword arguments:
     - `diameter`: antenna diameter.
     - `max_baseline`: longest baseline.
     - `spw_info`: frequency `min` and `max` per SPW.
