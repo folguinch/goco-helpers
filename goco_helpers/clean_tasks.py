@@ -274,8 +274,6 @@ def auto_masking(vis: Sequence[Path],
 
     return info
 
-
-
 def nsigma_tclean(vis: Sequence[Path],
                   imagename: Path,
                   nproc: int = 1,
@@ -293,8 +291,8 @@ def nsigma_tclean(vis: Sequence[Path],
       tclean_args: Optional. Additional arguments for `tclean`.
 
     Returns:
-      A dictionary with the final image file name (`fitsimage`), threshold for
-      each step (`thresholds`).
+      A dictionary with the final image file name (`fitsimage`), estimated
+      final threshold (`thresholds`).
     """
       
     # CLEAN args
@@ -312,7 +310,8 @@ def nsigma_tclean(vis: Sequence[Path],
 
     # Get rms
     _, rms = image_sn(fitsimage)
-    thresholds = [nsigma * rms * u.beam]
+    rms = rms * u.beam
+    thresholds = np.array([nsigma * rms.value]) * rms.unit
     log((f'Estimated threshold: '
          f'{nsigma}x{rms * u.beam} = {thresholds[0]}'))
 

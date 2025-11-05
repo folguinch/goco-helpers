@@ -10,8 +10,13 @@ import numpy as np
 import numpy.typing as npt
 
 def open_cube(imagename: 'pathlib.Path',
-              import_format: str = 'casa') -> SpectralCube:
+              import_format: Optional[str] = None) -> SpectralCube:
     """Read a cube."""
+    if import_format is None:
+        if imagename.suffix == '.fits':
+            import_format = 'fits'
+        else:
+            import_format = 'casa'
     image = SpectralCube.read(imagename,
                               use_dask=import_format=='casa',
                               format=import_format)
@@ -69,7 +74,7 @@ def sum_collapse(cube: SpectralCube,
         imgsum = np.sum(cube.filled_data[edge:-edge, :, :], axis=0)
 
     return fits.PrimaryHDU(imgsum,
-                           header=cube.wcs.sub(['logitude',
+                           header=cube.wcs.sub(['longitude',
                                                 'latitude']).to_header())
 
 def max_collapse(cube: SpectralCube,
@@ -96,8 +101,8 @@ def max_collapse(cube: SpectralCube,
         log('Replacing values below %f by zero', nsigma * rms)
         imgmax[imgmax < nsigma * rms] = 0.
 
-    return fits.PrimaryHDU(imgmax,
-                           header=cube.wcs.sub(['logitude',
+    return fits.PrimaryHDU(imgmax.value,
+                           header=cube.wcs.sub(['longitude',
                                                 'latitude']).to_header())
 
 def find_peak(cube: Optional[u.Quantity] = None,
@@ -115,8 +120,8 @@ def find_peak(cube: Optional[u.Quantity] = None,
     `ValueError` is raised.
 
     Args:
-      cube: Spectral cube.
-      image: 2-D image.
+      cube: Optional. Spectral cube.
+      image: Optional. Collapsed image.
       rms: Optional. Cube noise level.
       collapse_func: Optional. Collapse function.
       diff: Optional. Differentials of the image along each axis.
@@ -195,8 +200,8 @@ def get_common_position(images: Sequence['pathlib.Path'],
         # Restore
         if resume and imagename.exists():
             log(f'Loading collapsed image: {imagename}')
-            collapsed = fits.open(imagename)
-            _, position = find_peak(image=collapsed.data)
+            collapsed = fits.open(imagename)[0]
+            _, position = find_peak(image=collapsed)
             positions.append(position)
             continue
 
@@ -218,7 +223,7 @@ def get_common_position(images: Sequence['pathlib.Path'],
 
         # Save collapsed
         if save_collapsed:
-            log('Saving collapsed image: {imagename}')
+            log(f'Saving collapsed image: {imagename}')
             collapsed.writeto(imagename, overwrite=True)
 
     # Combine peaks

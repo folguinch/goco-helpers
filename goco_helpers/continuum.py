@@ -7,7 +7,10 @@ import argparse
 import os
 import sys
 
-from casaplotms import plotms
+try:
+    from casaplotms import plotms
+except ModuleNotFoundError:
+    plotms = None
 from casatasks import flagdata, flagmanager, split
 import astropy.units as u
 import numpy as np
