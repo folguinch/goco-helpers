@@ -14,6 +14,10 @@ import sys
 from casatools import ms, synthesisutils, msmetadata
 import astropy.units as u
 import numpy as np
+try:
+    import analysisUtils as au
+except ImportError:
+    au = None
 
 import goco_helpers.argparse_actions as actions
 import goco_helpers.argparse_parents as parents
@@ -184,6 +188,15 @@ def round_sigfig(val: Union[u.Quantity, float],
 
     return newval * val.unit
 
+def baseline_percentile(msname: 'pathlib.Path',
+                        percentile: float) -> float:
+    """Get the baseline length at `percentile`."""
+    if au is None:
+        return None
+    vals = au.getBaselineStats(f'{msname}', percentile=percentile)
+
+    return vals[0] * u.m
+
 def get_widths(msname: Optional['pathlib.Path'] = None,
                reduction: float = 0.99,
                log: Callable = print,
@@ -255,11 +268,11 @@ def imaging_parameters(msname: Optional['pathlib.Path'] = None,
     - `spw_info`: frequency `min` and `max` per SPW.
 
     Args:
-      msname: optional; MS file name.
-      oversample: optional; number of pixels per beam.
-      pbcoverage: optional; image size in terms of primary beam size.
-      log: optional; logging function.
-      ms_info: optional; parameters in case `msname` is not given.
+      msname: Optional. MS file name.
+      oversample: Optional. number of pixels per beam.
+      pbcoverage: Optional. image size in terms of primary beam size.
+      log: Optional. logging function.
+      ms_info: Optional. parameters in case `msname` is not given.
     """
     # Get info value
     if msname is not None:
@@ -273,6 +286,7 @@ def imaging_parameters(msname: Optional['pathlib.Path'] = None,
     # Iterate over spws
     log(f'Using beam overample: {oversample}')
     params = {'cell': np.inf * u.arcsec, 'imsize': 0}
+    spws = []
     for spw, info in ms_info['spw_info'].items():
         # Get values
         beam = round_sigfig(gaussian_beam(info['max'], max_baseline))
@@ -295,6 +309,13 @@ def imaging_parameters(msname: Optional['pathlib.Path'] = None,
         # Update params
         params['cell'] = min(params['cell'], pixsize)
         params['imsize'] = max(params['imsize'], imsize_opt)
+        spws.append(f'{spw}')
+    params['spws'] = ','.join(spws)
+
+    # Get b75
+    b75 = baseline_percentile(msname, 75)
+    if b75 is not None:
+        params['b75'] = f'{b75.value:.1f} {b75.unit}'
 
     return params
 

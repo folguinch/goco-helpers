@@ -26,6 +26,7 @@ def generate_config_dict(msname: Path,
                          name: str,
                          field: str,
                          pbcoverage: float = 2.,
+                         find_dirty: Optional[Path] = None,
                          log: Callable = print) -> Dict:
     """Generate a configuration dictionary.
 
@@ -35,12 +36,18 @@ def generate_config_dict(msname: Path,
     - `uvdata`: sets the `original` and `concat` values.
     - `imaging`: sets the `cell` and `imsize` values.
     - `continuum`: sets the `width` value for binning.
+
+    It also fills the following optional values:
+
+    - `imaging`: sets `b75` if `analysisUtils` is included in `PYTHONPATH`.
+    - `dirty`: fills the image names per spw if `find_dirty` is given.
     
     Args:
       msname: UV data to extract imaging properties.
       name: Source name.
       field: Field name.
       pbcoverage: Optional. Image size in terms of primary beam size.
+      find_dirty: Optional. Path where to look for dirty images.
       log: Optional. Logging function.
     """
     # Create config and update field
@@ -52,8 +59,21 @@ def generate_config_dict(msname: Path,
 
     # Set imaging values
     log('Setting imaging parameters')
-    config['imaging'] = imaging_parameters(msname, pbcoverage=pbcoverage,
-                                           log=log)
+    aux = imaging_parameters(msname, pbcoverage=pbcoverage, log=log)
+    spws = aux.pop('spws')
+    config['imaging'] = aux
+    print('=' * 80)
+
+    # Set dirty values
+    if find_dirty is not None:
+        log('Searching for dirty images')
+        config['dirty'] = {}
+        for spw in spws.split(','):
+            opt = f'image_name_spw{spw}'
+            ls = list(find_dirty.glob(f'{name}*spw{spw}*'))
+            if len(ls) == 1:
+                config['dirty'][opt] = f'{ls[0]}'
+                log(f'Found image for spw{spw}: {ls[0]}')
     print('=' * 80)
 
     # Set continuum values
@@ -117,6 +137,7 @@ def _get_field_data(args: argparse.Namespace):
                     name,
                     field,
                     pbcoverage=args.pbcoverage[0],
+                    find_dirty=args.find_dirty[0],
                     log=args.log.info
                 )
 
@@ -178,6 +199,8 @@ def config_gen(args: Optional[List] = None) -> None:
                         help='File name suffix')
     parser.add_argument('--output', nargs=1, action=actions.NormalizePath,
                         help='Output file name')
+    parser.add_argument('--find_dirty', nargs=1, action=actions.NormalizePath,
+                        help='Find dirty images in directory')
     parser.add_argument('defaults', nargs=1, action=actions.CheckFile,
                         help='Template file name')
     parser.add_argument('uvdata', nargs='+', action=actions.CheckDir,
