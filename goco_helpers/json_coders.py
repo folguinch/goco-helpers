@@ -6,7 +6,9 @@ import json
 import astropy.units as u
 
 class CustomObjEncoder(json.JSONEncoder):
-    def default(self, obj):
+    """Customized encoder to deal with `numpy` and `Quantity` types."""
+
+    def default(self, obj): # pylint: disable=arguments-renamed
         if hasattr(obj, 'unit'):
             val = obj.value
             if hasattr(val, 'size'):
@@ -19,7 +21,7 @@ class CustomObjEncoder(json.JSONEncoder):
 
         return super().default(obj)
 
-def custom_hooks(dct):
+def custom_hooks(dct: Dict):
     if '__quantity__' in dct:
         return dct['val'] * u.Unit(dct['unit'])
     elif '__quantity_list__' in dct:

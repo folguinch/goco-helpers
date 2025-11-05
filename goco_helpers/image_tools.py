@@ -145,7 +145,7 @@ def find_peak(cube: Optional[u.Quantity] = None,
 
     # Find peak
     if diff is None:
-        ymax, xmax = np.unravel_index(np.nanargmax(collapsed.data),
+        ymax, xmax = np.unravel_index(np.nanargmax(collapsed.data), # pylint: disable=unbalanced-tuple-unpacking
                                       collapsed.data.shape)
     else:
         # Search for peaks

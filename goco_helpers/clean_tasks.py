@@ -155,16 +155,17 @@ def tclean_parallel(vis: Sequence[Path],
     directory where the program is executed.
 
     Args:
-      vis: measurement sets.
-      imagename: image file name.
-      nproc: number of processes.
-      tclean_args: other arguments for tclean.
-      log: optional; logging function.
+      vis: Measurement sets.
+      imagename: Image file name.
+      nproc: Number of processes.
+      tclean_args: Other arguments for tclean.
+      log: Optional. Logging function.
     """
     if nproc == 1:
         tclean_args.update({'parallel': False})
         info = tclean(vis=list(map(str, vis)), imagename=str(imagename),
                       **tclean_args)
+        log(f'tclean summary: {info}')
     else:
         # Save tclean params
         tclean_args.update({'parallel': True})
@@ -294,7 +295,6 @@ def nsigma_tclean(vis: Sequence[Path],
       A dictionary with the final image file name (`fitsimage`), estimated
       final threshold (`thresholds`).
     """
-      
     # CLEAN args
     tclean_args.setdefault('niter', 100000)
     tclean_args['nsigma'] = nsigma
@@ -304,7 +304,7 @@ def nsigma_tclean(vis: Sequence[Path],
     if 'threshold' in tclean_args:
         del tclean_args['threshold']
     tclean_parallel(vis, imagename, nproc, tclean_args, log=log)
-    fitsimage = clean_imagename.with_suffix(f'.final.image.fits')
+    fitsimage = clean_imagename.with_suffix('.final.image.fits')
     exportfits(imagename=f'{clean_imagename}', fitsimage=f'{fitsimage}',
                overwrite=True)
 
