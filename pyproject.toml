@@ -7,15 +7,17 @@ readme = "README.md"
 packages = [{include = "goco_helpers"}]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-astropy = "^6.0.0"
+python = ">=3.11,<4.0"
+astropy = "^7.0.0"
 casatasks = "^6.6.0.20"
 casatools = "^6.6.0.20"
 casadata = "^2023.9.18"
-casaplotms = "^2.5.2"
+#casaplotms = "^2.5.2"
+numpy = "^2.3"
 spectral-cube = "^0.6.5"
-numpy = "^1.26.3"
 
+[tool.poetry.scripts]
+config_generator = 'goco_helpers.config_generator:config_gen'
 
 [build-system]
 requires = ["poetry-core"]
