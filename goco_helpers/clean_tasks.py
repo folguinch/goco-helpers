@@ -319,7 +319,7 @@ def nsigma_tclean(vis: Sequence[Path],
     if tclean_args.get('pbcor', False):
         pbcorimage = clean_imagename.with_suffix(
             f'{clean_imagename.suffix}.pbcor')
-        pbcor_fits_image = pbcorimage.with_suffix('.final.image.pbcor.fits')
+        pbcor_fits_image = fitsimage.with_suffix('.pbcor.fits')
         exportfits(imagename=f'{pbcorimage}', fitsimage=f'{pbcor_fits_image}',
                    overwrite=True)
 
