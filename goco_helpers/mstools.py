@@ -183,8 +183,9 @@ def gaussian_beam(freq: u.Quantity, baseline: u.Quantity) -> u.Quantity:
 def round_sigfig(val: Union[u.Quantity, float],
                  sigfig: int = 1) -> Union[u.Quantity, float]:
     """Round number to given number of significant figures."""
-    logval = np.rint(np.log10(val.value))
-    newval =  np.round(val.value / 10**logval, sigfig-1) * 10**logval
+    #logval = np.rint(np.log10(val.value))
+    #newval =  np.round(val.value / 10**logval, sigfig-1) * 10**logval
+    newval = float(f'{val.value:.{sigfig}g}')
 
     return newval * val.unit
 
