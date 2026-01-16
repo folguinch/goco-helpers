@@ -135,7 +135,7 @@ def _get_field_data(args: argparse.Namespace):
                 try:
                     find_dirty = args.find_dirty[0]
                 except TypeError:
-                    find_dirty = False
+                    find_dirty = None
                 field_data[field] = generate_config_dict(
                     msname,
                     name,
