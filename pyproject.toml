@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "goco-helpers"
-version = "0.2.1"
+version = "0.2.2"
 description = "Package grouping helper functions for goco"
 authors = ["Fernando Olguin <f.olguin.ch@gmail.com>"]
 readme = "README.md"
