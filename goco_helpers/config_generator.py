@@ -132,12 +132,16 @@ def _get_field_data(args: argparse.Namespace):
             else:
                 preffix = args.preffix[0]
                 name = f'{preffix}{field}'
+                try:
+                    find_dirty = args.find_dirty[0]
+                except TypeError:
+                    find_dirty = False
                 field_data[field] = generate_config_dict(
                     msname,
                     name,
                     field,
                     pbcoverage=args.pbcoverage[0],
-                    find_dirty=args.find_dirty[0],
+                    find_dirty=find_dirty,
                     log=args.log.info
                 )
 
