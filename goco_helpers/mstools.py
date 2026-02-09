@@ -34,12 +34,35 @@ def get_fields(msname: 'pathlib.Path',
 
 def spws_for_names(msname: 'pathlib.Path') -> List[List[int]]:
     """SPW indices per each SPW name."""
+    # Get names
     metadata = msmetadata()
     metadata.open(f'{msname}')
     names = metadata.spwsfornames()
     metadata.close()
 
-    return list(names.values())
+    # Organize
+    organized = {}
+    for name, vals:
+        # Extract information
+        units = name.split('#')
+        if 'BB' not in units[-3]:
+            raise NotImplementedError('SPW name format not implemented: BB')
+        if 'SW' not in units[-2]:
+            raise NotImplementedError('SPW name format not implemented: SW')
+        baseband = int(units[-3].split('_')[-1])
+        spw = int(units[-2].split('-')[-1])
+
+        # Record spws
+        key = (baseband, spw)
+        if key in organized:
+            organized[key] = organized[key].append(vals)
+        else:
+            organized[key] = vals
+
+    # Sort keys
+    organized = dict(sorted(organized.items(), key=lambda x: x[0]))
+
+    return list(organized.values())
 
 def spws_per_eb(msname: 'pathlib.Path'):
     """Determine the spws for each EB in input MS."""
