@@ -55,7 +55,7 @@ def spws_for_names(msname: 'pathlib.Path') -> List[List[int]]:
         # Record spws
         key = (baseband, spw)
         if key in organized:
-            organized[key] = organized[key].append(vals)
+            organized[key] = np.sort(np.append(organized[key], vals))
         else:
             organized[key] = vals
 
