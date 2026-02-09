@@ -42,7 +42,7 @@ def spws_for_names(msname: 'pathlib.Path') -> List[List[int]]:
 
     # Organize
     organized = {}
-    for name, vals:
+    for name, vals in names.items():
         # Extract information
         units = name.split('#')
         if 'BB' not in units[-3]:
