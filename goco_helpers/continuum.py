@@ -42,11 +42,11 @@ def get_continuum(msname: 'pathlib.Path',
         for flag_ver in flag_list.values():
             try:
                 if 'before_cont_flags' in list(flag_ver.values()):
-                    flagmanager(vis=f'{msname}', mode='remove',
+                    flagmanager(vis=f'{msname}', mode='delete',
                                 versionname='before_cont_flags')
                 elif 'afoli_flags' in list(flag_ver.values()):
-                    flagmanager(vis=f'{msname}', mode='remove',
-                                versionname='before_cont_flags')
+                    flagmanager(vis=f'{msname}', mode='delete',
+                                versionname='afoli_flags')
             except AttributeError:
                 continue
 
